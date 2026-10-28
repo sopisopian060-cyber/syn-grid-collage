@@ -1,0 +1,131 @@
+
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#101323">
+<title>SYN Grid Collage</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;background:#101323;color:#f7f7fb;font-family:Arial,sans-serif}
+header{padding:22px 18px;background:#191d32;border-bottom:1px solid #30354e}
+.brand{font-size:24px;font-weight:800;letter-spacing:1px}
+.brand span{color:#a78bfa}
+header p{color:#b7bad0;font-size:13px;margin:7px 0 0}
+main{max-width:720px;margin:auto;padding:18px}
+.panel{background:#1a1f35;border:1px solid #303650;border-radius:18px;padding:16px;margin-bottom:16px}
+h2{font-size:17px;margin:0 0 14px}
+button,.upload{display:inline-flex;align-items:center;justify-content:center;border:0;border-radius:11px;padding:12px 15px;font-weight:700;cursor:pointer;font-size:14px}
+.primary{background:#a78bfa;color:#171326}
+.secondary,.upload{background:#303650;color:white}
+input,select{max-width:100%;padding:10px;border-radius:9px;border:1px solid #424965;background:#101323;color:white}
+.controls{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:12px 0}
+#preview{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:5px;background:#303650;padding:5px;border-radius:12px;overflow:hidden}
+#preview img{width:100%;height:100%;min-height:100px;max-height:280px;object-fit:cover;display:block}
+#preview:empty{display:flex;min-height:180px;align-items:center;justify-content:center;color:#aeb3ca;text-align:center;padding:24px}
+.hint{font-size:12px;color:#b7bad0;line-height:1.6}
+.actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px}
+.actions button{flex:1}
+footer{text-align:center;padding:18px;color:#9298b5;font-size:12px}
+</style>
+</head>
+<body>
+<header>
+  <div class="brand"><span>SYN</span> GRID COLLAGE</div>
+  <p>Satukan foto, ciptakan cerita.</p>
+</header>
+<main>
+  <section class="panel">
+    <h2>01 · Pilih foto</h2>
+    <label class="upload" for="photos">＋ Pilih beberapa foto</label>
+    <input id="photos" type="file" accept="image/*" multiple hidden>
+    <p class="hint" id="count">Belum ada foto dipilih.</p>
+  </section>
+  <section class="panel">
+    <h2>02 · Atur kolase</h2>
+    <div class="controls">
+      <label for="columns">Kolom</label>
+      <select id="columns">
+        <option value="1">1 kolom</option>
+        <option value="2" selected>2 kolom</option>
+        <option value="3">3 kolom</option>
+        <option value="4">4 kolom</option>
+      </select>
+      <label for="gap">Jarak</label>
+      <input id="gap" type="range" min="0" max="20" value="5">
+      <span id="gapValue">5 px</span>
+    </div>
+    <div class="controls">
+      <label for="bg">Warna bingkai</label>
+      <input id="bg" type="color" value="#303650">
+    </div>
+    <div id="preview">Foto kolase kamu akan muncul di sini.</div>
+    <div class="actions">
+      <button class="secondary" id="clear">Hapus foto</button>
+      <button class="primary" id="save">Simpan kolase</button>
+    </div>
+    <p class="hint">Pilih foto, atur kolom dan jarak, lalu simpan hasilnya sebagai gambar.</p>
+  </section>
+</main>
+<footer>SYN Grid Collage · Versi awal</footer>
+<script>
+const picker=document.getElementById('photos');
+const preview=document.getElementById('preview');
+const columns=document.getElementById('columns');
+const gap=document.getElementById('gap');
+const bg=document.getElementById('bg');
+const count=document.getElementById('count');
+let photos=[];
+picker.addEventListener('change',()=>{
+  photos=Array.from(picker.files).filter(f=>f.type.startsWith('image/'));
+  render();
+});
+function render(){
+  preview.innerHTML='';
+  preview.style.gridTemplateColumns=`repeat(${columns.value},minmax(0,1fr))`;
+  preview.style.gap=gap.value+'px';
+  preview.style.background=bg.value;
+  preview.style.padding=gap.value+'px';
+  count.textContent=photos.length?`${photos.length} foto dipilih.`:'Belum ada foto dipilih.';
+  if(!photos.length){preview.textContent='Foto kolase kamu akan muncul di sini.';return}
+  photos.forEach(file=>{
+    const img=document.createElement('img');
+    img.alt='Foto kolase';
+    img.src=URL.createObjectURL(file);
+    preview.appendChild(img);
+  });
+}
+columns.addEventListener('change',render);
+gap.addEventListener('input',()=>{document.getElementById('gapValue').textContent=gap.value+' px';render()});
+bg.addEventListener('input',render);
+document.getElementById('clear').addEventListener('click',()=>{
+  photos=[];picker.value='';render();
+});
+document.getElementById('save').addEventListener('click',async()=>{
+  if(!photos.length){alert('Pilih foto terlebih dahulu.');return}
+  const urls=photos.map(f=>URL.createObjectURL(f));
+  try{
+    const imgs=await Promise.all(urls.map(src=>new Promise((resolve,reject)=>{
+      const im=new Image();im.onload=()=>resolve(im);im.onerror=reject;im.src=src;
+    })));
+    const cols=Number(columns.value),g=Number(gap.value),cellW=900/cols;
+    const rows=Math.ceil(imgs.length/cols),cellH=cellW;
+    const canvas=document.createElement('canvas');
+    canvas.width=900;canvas.height=rows*cellH+g;
+    const ctx=canvas.getContext('2d');
+    ctx.fillStyle=bg.value;ctx.fillRect(0,0,canvas.width,canvas.height);
+    imgs.forEach((im,i)=>{
+      const x=g+(i%cols)*(cellW),y=g+Math.floor(i/cols)*(cellH);
+      const scale=Math.max(cellW/im.width,cellH/im.height);
+      const sw=cellW/scale,sh=cellH/scale;
+      ctx.drawImage(im,(im.width-sw)/2,(im.height-sh)/2,sw,sh,x,y,cellW-g,cellH-g);
+    });
+    const a=document.createElement('a');a.download='syn-grid-collage.jpg';a.href=canvas.toDataURL('image/jpeg',0.92);a.click();
+  }catch(e){alert('Gagal menyimpan. Coba gunakan foto lain.')}
+  finally{urls.forEach(URL.revokeObjectURL)}
+});
+render();
+</script>
+</body>
+</html>
